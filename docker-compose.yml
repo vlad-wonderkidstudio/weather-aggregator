@@ -1,0 +1,93 @@
+networks:
+  docker.network:
+    driver: bridge
+
+services:
+  php:
+    build: ./docker/php
+    networks:
+      - docker.network
+    volumes:
+      - ./:/usr/share/nginx/www
+      - ./docker/php/php.ini:/usr/local/etc/php/php.ini
+    working_dir: /usr/share/nginx/www
+    environment:
+      DB_HOST: mysql
+      REDIS_HOST: redis
+    #command: composer install --no-interaction --optimize-autoloader && chown -R www-data:www-data storage bootstrap/cache
+
+
+  nginx:
+    build: ./docker/nginx
+    links:
+        - php
+    volumes_from:
+        - php
+    ports:
+      - 80:80
+    networks:
+      - docker.network
+
+  mysql:
+    build: ./docker/mysql
+    restart: unless-stopped
+    container_name: docker.mysql
+    tty: true
+    ports:
+      - "3306:3306"
+    networks:
+      - docker.network
+    volumes:
+      - "./docker/mysql/mysql.cnf:/etc/mysql/conf.d/custom.cnf:ro"
+      - "./docker/mysql/dbdata:/var/lib/mysql"
+    environment:
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-development}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-mysql}
+      MYSQL_USER: ${MYSQL_USER:-mysql}
+
+  phpmyadmin:
+    image: phpmyadmin
+    container_name: docker.phpmyadmin
+    tty: true
+    depends_on:
+      - mysql
+    ports:
+      - "8080:80"
+    networks:
+      - docker.network
+    environment:
+      PMA_HOST: mysql
+      PMA_ARBITRARY: 1
+      PMA_PORT: 3306
+
+  redis:
+    image: bitnami/redis:latest
+    restart: unless-stopped
+    container_name: docker.redis
+    tty: true
+    ports:
+      - "6379:6379"
+    networks:
+      - docker.network
+    volumes:
+      - ./docker/redis:/bitnami/redis/data
+    environment:
+      ALLOW_EMPTY_PASSWORD: ${REDIS_ALLOW_EMPTY_PASSWORD:-no}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-redis}
+
+  # zookeeper:
+  #   image: wurstmeister/zookeeper
+  #   ports:
+  #     - 2181:2181
+
+  # kafka:
+  #   image: wurstmeister/kafka
+  #   ports:
+  #     - 9092:9092
+  #   environment:
+  #     KAFKA_ADVERTISED_HOST_NAME: kafka
+  #     KAFKA_CREATE_TOPICS: "test:1:1"
+  #     KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+  #   volumes:
+  #     - /var/run/docker.sock:/var/run/docker.sock
