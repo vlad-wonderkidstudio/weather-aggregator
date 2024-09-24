@@ -26,8 +26,6 @@ WORKDIR /usr/share/nginx/www
 # PHPRedis
 RUN pecl install redis
 
-ADD schema.sql /tmp
-
 CMD cd /usr/share/nginx/www \
     cp -R -u -p ./.env.example /.env \
     && composer install --no-interaction --optimize-autoloader \
