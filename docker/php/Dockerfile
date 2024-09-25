@@ -27,11 +27,11 @@ WORKDIR /usr/share/nginx/www
 RUN pecl install redis
 
 CMD cd /usr/share/nginx/www \
-    cp -R -u -p ./.env.example /.env \
+    && cp -R -u -p ./.env.example ./.env \
     && composer install --no-interaction --optimize-autoloader \
+    && php artisan migrate \
+    && php artisan l5-swagger:generate \
     && php-fpm --nodaemonize
-
-
 
 # KAFKA
 

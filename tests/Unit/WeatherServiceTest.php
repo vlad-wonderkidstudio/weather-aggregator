@@ -93,14 +93,20 @@ class WeatherServiceTest extends TestCase
 
       $weatherDataMock = Mockery::mock('alias:' . WeatherData::class);
       $weatherDataMock->shouldReceive('select')
-          ->once()
-          ->andReturnSelf()
-          ->shouldReceive('fromSub')
-          ->once()
-          ->andReturnSelf()
-          ->shouldReceive('get')
-          ->once()
-          ->andReturn(collect([(object)['temperature' => 22.5]]));
+      ->once()
+        ->andReturnSelf()
+        ->shouldReceive('join')
+        ->once()
+        ->andReturnSelf()
+        ->shouldReceive('where')
+        ->times(2)
+        ->andReturnSelf()
+        ->shouldReceive('groupBy')
+        ->once()
+        ->andReturnSelf()
+        ->shouldReceive('get')
+        ->once()
+        ->andReturn(collect([(object)['temperature' => 22.5]]));
 
       $service = new WeatherService($visualcrossing, $weatherapi);
 

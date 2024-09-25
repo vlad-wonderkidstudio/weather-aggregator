@@ -29,6 +29,7 @@ services:
       - docker.network
 
   mysql:
+    image: mysql:8
     build: ./docker/mysql
     restart: unless-stopped
     container_name: docker.mysql
@@ -37,14 +38,15 @@ services:
       - "3306:3306"
     networks:
       - docker.network
-    volumes:
-      - "./docker/mysql/mysql.cnf:/etc/mysql/conf.d/custom.cnf:ro"
-      - "./docker/mysql/dbdata:/var/lib/mysql"
+    #volumes:
+      #- "./docker/mysql/mysql.cnf:/etc/mysql/conf.d/custom.cnf:ro"
+      #- "./docker/mysql/dbdata:/var/lib/mysql"
+      #- "./docker/mysql/init.sql:/docker-entrypoint-initdb.d/init.sql"
     environment:
-      MYSQL_DATABASE: ${MYSQL_DATABASE:-development}
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-mysql}
-      MYSQL_USER: ${MYSQL_USER:-mysql}
+      MYSQL_DATABASE: weather # or another DB name you prefer to be your default one working DB
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_PASSWORD: mysql
+      MYSQL_USER: mysql
 
   phpmyadmin:
     image: phpmyadmin

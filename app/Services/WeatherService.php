@@ -66,39 +66,27 @@ class WeatherService
     return Location::getAllLocations();
   }
 
-  public function getWeatherDataAndSave(int $locationId, string $location): array
+  public function getWeatherDataAndSave(int $locationId, string $location): void
   {
-    $ret = [];
     $timeNow = date('Y-m-d H:i:s');
 
-    DB::beginTransaction();
+    foreach ($this->weatherSources as $source) {
+      DB::beginTransaction();
 
-    try {
-      foreach ($this->weatherSources as $source) {
-        $ret[$source->getSourceCode()] = $source->getWeatherData($location);
+      $ret = $source->getWeatherData($location);
 
-        if ($ret[$source->getSourceCode()]) {
-          WeatherData::create([
-            'location_id' => $locationId,
-            'source_code' => $source->getSourceCode(),
-            'temperature' => $ret[$source->getSourceCode()]->temperature,
-            'date' => $timeNow
-          ]);
-        } else {
-          throw new CustomException("Was not able to get the weather for location: $location, source: {$source->getSourceCode()} ");
-        }
+      if ($ret && isset($ret->temperature)) {
+        WeatherData::create([
+          'location_id' => $locationId,
+          'source_code' => $source->getSourceCode(),
+          'temperature' => $ret->temperature,
+          'date' => $timeNow
+        ]);
+        DB::commit();
+      } else {
+        DB::rollback();
       }
-
-      //if everything goes well
-      DB::commit();
-
-    } catch (\Exception $e) {
-      //if something goes wrong
-      Log::error('An error occured: ' . $e->getMessage());
-      DB::rollback();
     }
-
-    return $ret;
   }
 
   public function checkIfLocationExists(string $location): bool
@@ -131,20 +119,17 @@ class WeatherService
 
     // I was able to get the location_id when checking if the location exists, and it would work faster
     // but since it is a testing task I need to show that I can work with joins
-    $result->averageData = WeatherData::select(DB::raw('AVG(`average_temperatures`.`avg_temperature`) AS `temperature`'))
-      ->fromSub(function ($query) use ($location, $dateTimeFrom, $dateTimeTo, $maximumFields) {
+    $dateTimeFromSql = date("Y-m-d H:i:s", strtotime($dateTimeFrom));
+    $dateTimeToSql = date("Y-m-d H:i:s", strtotime($dateTimeTo));
 
-        $query->select('weather_data.date', DB::raw('AVG(`weather_data`.`temperature`) as `avg_temperature`'))
-          ->from('weather_data')
-          ->join('locations', function (JoinClause $join) use ($location) {
-            $join->on('weather_data.location_id', '=', 'locations.id')
-              ->where('locations.name', $location);
-          })
-          ->where('weather_data.date', '>=', $dateTimeFrom)
-          ->where('weather_data.date', '<=', $dateTimeTo)
-          ->groupBy('weather_data.date')
-          ->limit($maximumFields);
-      }, 'average_temperatures')
+    $result->averageData = WeatherData::select(DB::raw('AVG(`weather_data`.`temperature`) as `temperature`'))
+      ->join('locations', function (JoinClause $join) use ($location) {
+        $join->on('weather_data.location_id', '=', 'locations.id')
+          ->where('locations.name', $location);
+      })
+      ->where('weather_data.date', '>=', $dateTimeFromSql)
+      ->where('date', '<=', $dateTimeToSql)
+      ->groupBy('location_id')
       ->get();
 
     if (!$result->averageData->isEmpty()) {
